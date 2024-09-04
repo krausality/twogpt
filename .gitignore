@@ -1,0 +1,13 @@
+# Ignore everything
+*
+
+# But not these files...
+!.gitignore
+!/twogpt/*
+!setup.py
+!README.md
+!next_prompt.txt
+# etc...
+
+# ...even if they are in subdirectories
+!*/
