@@ -1,0 +1,162 @@
+Next step promt:
+
+
+Implement a parser in the appended code, do it this way:
+
+The following code is a python CLI, but i want a centralized config file for it, located and created next to the script in the library, not where the CLI will be executed.
+the config file shall contain all the following settings, instead being hardcoded in the script like this:
+
+        self.output_file = "allfiles.txt"
+        self.ignore_file = ".gptignore"
+
+        # Define which file formats should be included in the collection (wildcard patterns).
+        self.include_formats = [
+            "*.json", "*.tsx", "*.html", "*.css", "*.ts", "*.js", "*.py", "*.java", "*.rb", "*.go",
+            "*.cpp", "*.c", "*.h", "*.hpp", "*.cs", "*.swift", "*.kt", "*.php", "*.sql", "*.sh", 
+            "*.xml", "*.yaml", "*.yml", "*.md", "*.ini", "*.bat", "*.ps1", "*.r", "*.pl", "*.m",
+            "Dockerfile", "*.file", "*.txt"
+        ]
+
+        # Define file formats to exclude (e.g., image formats).
+        self.exclude_formats = [
+            "*.png", "*.svg"
+        ]
+
+        # Exclude specific files, including the output file and ignore file.
+        self.exclude_files = {
+            self.output_file,  # Output file to prevent self-inclusion
+            self.ignore_file   # The ignore file itself
+        }
+
+        # Parse .gptignore to gather additional exclusion patterns
+        self.gptignore_patterns = self.parse_gptignore()
+
+        # These sets store directories and files that are excluded based on .gptignore
+        self.exclude_dirs = set()
+        self.exclude_files.update(self.exclude_formats)
+ 
+
+The parser should enable the adding of formats/files to permanent exclusion/inclusion, and one time exceution/inclusion only exclusion
+The parser should also enable the removing and listing of permanent excluded/included files/formats, located the systemconfig
+
+
+import json
+import os
+import fnmatch
+import re
+from dir_tree import DirectoryTree
+
+class FileCollector:
+    def __init__(self, root_dir='.'):
+        """
+        Initialize the FileCollector with a given root directory. This sets up the inclusion
+        and exclusion criteria for files and directories, including the handling of .gptignore.
+        """
+        self.root_dir = root_dir
+        self.output_file = "allfiles.txt"
+        self.ignore_file = ".gptignore"
+
+        # Define which file formats should be included in the collection (wildcard patterns).
+        self.include_formats = [
+            "*.json", "*.tsx", "*.html", "*.css", "*.ts", "*.js", "*.py", "*.java", "*.rb", "*.go",
+            "*.cpp", "*.c", "*.h", "*.hpp", "*.cs", "*.swift", "*.kt", "*.php", "*.sql", "*.sh", 
+            "*.xml", "*.yaml", "*.yml", "*.md", "*.ini", "*.bat", "*.ps1", "*.r", "*.pl", "*.m",
+            "Dockerfile", "*.file", "*.txt"
+        ]
+
+        # Define file formats to exclude (e.g., image formats).
+        self.exclude_formats = [
+            "*.png", "*.svg"
+        ]
+
+        # Exclude specific files, including the output file and ignore file.
+        self.exclude_files = {
+            self.output_file,  # Output file to prevent self-inclusion
+            self.ignore_file   # The ignore file itself
+        }
+
+        # Parse .gptignore to gather additional exclusion patterns
+        self.gptignore_patterns = self.parse_gptignore()
+
+        # These sets store directories and files that are excluded based on .gptignore
+        self.exclude_dirs = set()
+        self.exclude_files.update(self.exclude_formats)
+
+        # Classify .gptignore patterns into directories and files
+        self._classify_gptignore_patterns()
+
+    def parse_gptignore(self):
+        """Parse the .gptignore file to get exclusion patterns."""
+        gptignore_file = os.path.join(self.root_dir, '.gptignore')
+        patterns = []
+        if os.path.exists(gptignore_file):
+            with open(gptignore_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#'):  # Ignore empty lines and comments
+                        patterns.append(line)
+        return patterns
+
+    def _classify_gptignore_patterns(self):
+        """Classify .gptignore patterns into directories and files."""
+        for pattern in self.gptignore_patterns:
+            if pattern.endswith('/'):
+                self.exclude_dirs.add(pattern.rstrip('/'))
+            else:
+                self.exclude_files.add(pattern)
+
+    def generate_tree(self):
+        # Create the directory tree, excluding specified patterns
+        tree = DirectoryTree(root_dir=self.root_dir, exclude_dirs=self.exclude_dirs, exclude_files=self.exclude_files)
+        with open(self.output_file, 'w', encoding='utf-8') as f:
+            f.write("File Structure:\n")
+            f.write(json.loads(tree.to_json())["tree_print"])
+            f.write("\n\n")
+
+    def collect_files(self):
+        include_patterns = self._compile_patterns(self.include_formats)
+        exclude_patterns = self._compile_patterns(list(self.exclude_files))
+        print(f"Include patterns: {include_patterns}") # Debugging line
+        print(f"Exclude patterns: {exclude_patterns}") # Debugging line
+
+
+        with open(self.output_file, 'a') as f:
+            for root, dirs, files in os.walk(self.root_dir):
+                print(f"Walking directory: {root}")  # Debugging line
+                dirs[:] = [d for d in dirs if d not in self.exclude_dirs and not any(fnmatch.fnmatch(d, pattern) for pattern in self.exclude_dirs)]
+                for file in files:
+                    print(f"Processing file: {file}")  # Debugging line
+                    if any(re.match(pattern, file) for pattern in include_patterns) and not any(re.match(pattern, file) for pattern in exclude_patterns):
+                        file_path = os.path.join(root, file)
+                        print(f"Including file for content collection: {file_path}")  # Add this line
+                        self._append_file_content(f, file_path)
+
+
+    def _compile_patterns(self, patterns):
+        return [fnmatch.translate(pattern) for pattern in patterns]
+
+    def _append_file_content(self, file, file_path):
+        print(f"Attempting to append content from: {file_path}")  # Debugging line
+        try:
+            with open(file_path, 'r', errors='ignore') as f:
+                content = f.read()
+                if not content:
+                    print(f"File {file_path} is empty or unreadable.")
+                else:
+                    print(f"Read content from {file_path}: {content[:100]}")  # First 100 chars of content
+                    file.write(f"----- START OF {file_path} -----\n")
+                    file.write(content)
+                    file.write(f"\n----- END OF {file_path} -----\n\n\n")
+        except Exception as e:
+            print(f"Error appending content from {file_path}: {e}")  # Print any exceptions
+
+    def run(self):
+        self.generate_tree()
+        self.collect_files()
+
+def main():
+    collector = FileCollector(root_dir=".")
+    collector.run()
+
+if __name__ == "__main__":
+    main()

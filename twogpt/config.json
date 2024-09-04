@@ -1,0 +1,15 @@
+{
+    "output_file": "allfiles.txt",
+    "ignore_file": ".gptignore",
+    "include_files": [
+      "*.json", "*.tsx", "*.html", "*.css", "*.ts", "*.js", "*.py", "*.java", "*.rb", "*.go",
+      "*.cpp", "*.c", "*.h", "*.hpp", "*.cs", "*.swift", "*.kt", "*.php", "*.sql", "*.sh",
+      "*.xml", "*.yaml", "*.yml", "*.md", "*.ini", "*.bat", "*.ps1", "*.r", "*.pl", "*.m",
+      "Dockerfile", "*.file", "*.txt"
+    ],
+    "exclude_files": [
+      "*.png", "*.svg"
+    ],
+    "exclude_dirs": []
+  }
+  

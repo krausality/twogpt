@@ -1,0 +1,20 @@
+{
+    "EXCLUDE_DIRS": [
+        "dist",
+        ".expo",
+        "__pycache__",
+        "2gpt.egg-info",
+        "env",
+        "venv",
+        "node_modules",
+        "build",
+        ".idea",
+        ".git"
+    ],
+    "EXCLUDE_FILES": [
+        "allfiles.txt",
+        "next_prompt.txt",
+        "LICENSE",
+        "dir_tree_prefs.json"
+    ]
+}
