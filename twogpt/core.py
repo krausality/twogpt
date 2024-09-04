@@ -7,17 +7,21 @@ from dir_tree import DirectoryTree
 import shutil  # For copying the global config
 
 class FileCollector:
-    def __init__(self, root_dir='.', use_global_config=True):
+    def __init__(self, root_dir='.', global_config=False, permanent=False):
         """
         Initialize the FileCollector with a given root directory.
-        Can work with both global or local configurations depending on the flag.
+        If global_config is True, work with the global config file. Otherwise, use the local config if it exists.
+        If the local config doesn't exist and permanent changes are requested, create it.
         """
         self.root_dir = root_dir
-        self.use_global_config = use_global_config  # Determines whether we're working with global config or local
+        self.global_config = global_config
+        self.permanent = permanent  # Whether a permanent change is being made
         
-        if self.use_global_config:
+        if self.global_config or (not self.local_config_exists() and not self.permanent):
+            # Use the global config if explicitly requested or if no local config exists and no permanent change
             self.config = self.load_global_config()
         else:
+            # Use local config if it exists, or create it when a permanent change is requested
             self.config = self.load_local_config()
 
         # Settings from the configuration file
@@ -37,6 +41,11 @@ class FileCollector:
         # Classify .gptignore patterns into directories and files
         self._classify_gptignore_patterns()
 
+    def local_config_exists(self):
+        """Check if the local .gptignore config exists."""
+        local_config_path = os.path.join(self.root_dir, '.gptignore')
+        return os.path.exists(local_config_path)
+
     def load_global_config(self):
         """Load the global configuration from the package's config.json file."""
         config_path = os.path.join(os.path.dirname(__file__), 'config.json')
@@ -47,11 +56,12 @@ class FileCollector:
             return json.load(config_file)
 
     def load_local_config(self):
-        """Load the local .gptignore configuration or copy the global config if not present."""
+        """Load the local .gptignore configuration or create it from the global config if not present."""
         local_config_path = os.path.join(self.root_dir, '.gptignore')
         global_config_path = os.path.join(os.path.dirname(__file__), 'config.json')
 
         if os.path.exists(local_config_path):
+            # Load existing local config
             with open(local_config_path, 'r') as f:
                 config = {'include_files': [], 'exclude_files': []}
                 for line in f:
@@ -62,22 +72,17 @@ class FileCollector:
                         elif line.startswith('exclude:'):
                             config['exclude_files'].append(line.split(':', 1)[1].strip())
                 return config
-        else:
-            # If local .gptignore doesn't exist, copy the global config
-            print(f"Local .gptignore not found. Creating from global config.")
+        elif self.permanent:
+            # If no local config exists and a permanent change is being made, copy from the global config
+            print(f"Local .gptignore not found. Creating from global config for permanent changes.")
             shutil.copy(global_config_path, local_config_path)
+            return self.load_global_config()
+        else:
+            # Use global config temporarily if no local config exists and no permanent changes are requested
             return self.load_global_config()
 
     def save_local_config(self):
         """Save the local .gptignore configuration."""
-        
-        global_config_path = os.path.join(os.path.dirname(__file__), 'config.json')
-
-        if not os.path.exists(local_config_path):
-            print(f"Local .gptignore not found. Creating from global config.")
-            shutil.copy(global_config_path, local_config_path)
-            return self.load_global_config()
-
         local_config_path = os.path.join(self.root_dir, '.gptignore')
         with open(local_config_path, 'w') as f:
             for pattern in self.include_files:
@@ -97,7 +102,7 @@ class FileCollector:
         """Add a file pattern to the include list."""
         self.include_files.append(pattern)
         if permanent:
-            if self.use_global_config:
+            if self.global_config:
                 self.config['include_files'].append(pattern)
                 self.save_global_config()
             else:
@@ -108,7 +113,7 @@ class FileCollector:
         if pattern in self.include_files:
             self.include_files.remove(pattern)
         if permanent:
-            if self.use_global_config:
+            if self.global_config:
                 if pattern in self.config['include_files']:
                     self.config['include_files'].remove(pattern)
                 self.save_global_config()
@@ -119,7 +124,7 @@ class FileCollector:
         """Add a file pattern to the exclude list."""
         self.exclude_files.add(pattern)
         if permanent:
-            if self.use_global_config:
+            if self.global_config:
                 self.config['exclude_files'].append(pattern)
                 self.save_global_config()
             else:
@@ -130,7 +135,7 @@ class FileCollector:
         if pattern in self.exclude_files:
             self.exclude_files.remove(pattern)
         if permanent:
-            if self.use_global_config:
+            if self.global_config:
                 if pattern in self.config['exclude_files']:
                     self.config['exclude_files'].remove(pattern)
                 self.save_global_config()
@@ -200,7 +205,7 @@ class FileCollector:
         return [fnmatch.translate(pattern) for pattern in patterns]
 
     def _append_file_content(self, file, file_path):
-        """Append the content of a file to the output."""
+        """Append file content to the output."""
         print(f"Attempting to append content from: {file_path}")  # Debugging line
         try:
             with open(file_path, 'r', errors='ignore') as f:
@@ -213,7 +218,7 @@ class FileCollector:
                     file.write(content)
                     file.write(f"\n----- END OF {file_path} -----\n\n\n")
         except Exception as e:
-            print(f"Error appending content from {file_path}: {e}")  # Print any exceptions
+            print(f"Error appending content from {file_path}: {e}")
 
     def run(self):
         """Run the file collection process."""
@@ -221,13 +226,11 @@ class FileCollector:
         self.collect_files()
 
 
-
-### CLI Argument Parser Implementation
 def main():
     parser = argparse.ArgumentParser(description="FileCollector CLI to manage file inclusion and exclusion.")
     subparsers = parser.add_subparsers(dest="command", help="Sub-command help")
     
-    # Rename the --global flag to --global-config to avoid the reserved keyword issue
+    # Add global config option
     parser.add_argument('--global-config', action='store_true', help='Apply changes to the global config instead of the local config.')
 
     # Add subcommand for including files
@@ -257,7 +260,7 @@ def main():
     args = parser.parse_args()
 
     # Determine whether we're using the global config or local config
-    collector = FileCollector(root_dir=".", use_global_config=args.global_config)
+    collector = FileCollector(root_dir=".", global_config=args.global_config, permanent=args.permanent)
 
     if args.command == "include":
         collector.add_include(args.pattern, permanent=args.permanent)
@@ -271,6 +274,8 @@ def main():
         collector.list_includes()
     elif args.command == "list-excludes":
         collector.list_excludes()
+
+    collector.run()
 
 if __name__ == "__main__":
     main()
