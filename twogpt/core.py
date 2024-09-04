@@ -279,3 +279,232 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+"""
+2gpt
+
+Lokale config wird ausgelesen falls sie exististiert 
+Falls lokale config nicht existiert. Globale config auslesen.
+Einen run starten mit determinierter config.
+
+
+2gpt include "file.py"
+
+Lokale config wird ausgelesen falls sie exististiert 
+Falls lokale config nicht existiert. Globale config auslesen.
+
+file.py wird nur für den direkt folgenden run included, config files bleiben unverändert.
+Einen run starten mit determinierter config.
+
+
+2gpt include "file.py" --permanent
+
+Lokale config wird ausgelesen falls sie exististiert 
+Falls lokale config nicht existiert. Globale config auslesen und als .gptignore in
+das jeweilig rootverzeichnis abspeichern.
+Dann die include "file.py" operation auf der configdatei durschführen, sodass "file.py" jetzt permanent und für
+erstmal alle zukünftigen runs included ist.
+
+2gpt include "file.py" --permanent --global-config
+
+Lokale config wird ignoriert
+Globale config auslesen.
+Dann die include "file.py" operation auf der globalen configdatei durchführen, sodass "file.py" jetzt permanent
+und für alle zukünftigen runs included ist, welche die globale config nutzen müssen.
+
+
+Einen run starten mit determinierter config.
+
+
+Globale config wird nur ausgelesen fall "--global-config" als parameter, dann egal ob lokale existiert
+
+Perm
+
+
+
+---------------------
+
+
+To implement the desired behavior for the **CLI tool** with local and global configuration management for `include`, `exclude`, `list-includes`, `list-excludes`, and `remove` functionality, here’s how the CLI should behave for each command:
+
+### Overall Workflow for Local and Global Configurations:
+
+1. **Default Run (`2gpt`)**:
+    - **Local config is used** if it exists.
+    - **If local config does not exist**, the global config is used.
+    - Perform the run with the determined config (local or global).
+
+2. **Temporary Include (`2gpt include "file.py"`)**:
+    - **Local config is used** if it exists.
+    - **If local config does not exist**, the global config is used.
+    - Include the file `file.py` for this run temporarily (the config files remain unchanged).
+    - Start a run with the determined config and the temporary include.
+
+3. **Permanent Include Locally (`2gpt include "file.py" --permanent`)**:
+    - **Local config is used** if it exists.
+    - **If local config does not exist**, the global config is copied to a new local `.gptignore` file.
+    - Modify the local config to include `file.py` permanently.
+    - Start a run with the modified local config.
+
+4. **Permanent Include Globally (`2gpt include "file.py" --permanent --global-config`)**:
+    - **Local config is ignored**.
+    - **Global config is used**.
+    - Modify the global config to include `file.py` permanently.
+    - Start a run with the modified global config.
+
+---
+
+### Adding `exclude`, `list-includes`, `list-excludes`, and `remove` Functionality:
+
+1. **Temporary Exclude (`2gpt exclude "file.py"`)**:
+    - **Local config is used** if it exists.
+    - **If local config does not exist**, the global config is used.
+    - Exclude the file `file.py` for this run temporarily (the config files remain unchanged).
+    - Start a run with the determined config and the temporary exclusion.
+
+2. **Permanent Exclude Locally (`2gpt exclude "file.py" --permanent`)**:
+    - **Local config is used** if it exists.
+    - **If local config does not exist**, the global config is copied to a new local `.gptignore` file.
+    - Modify the local config to exclude `file.py` permanently.
+    - Start a run with the modified local config.
+
+3. **Permanent Exclude Globally (`2gpt exclude "file.py" --permanent --global-config`)**:
+    - **Local config is ignored**.
+    - **Global config is used**.
+    - Modify the global config to exclude `file.py` permanently.
+    - Start a run with the modified global config.
+
+4. **List Includes (`2gpt list-includes`)**:
+    - **Local config is used** if it exists.
+    - **If local config does not exist**, the global config is used.
+    - List all files or patterns that are included in the config.
+
+5. **List Includes Globally (`2gpt list-includes --global-config`)**:
+    - **Local config is ignored**.
+    - **Global config is used**.
+    - List all files or patterns that are included in the global config.
+
+6. **List Excludes (`2gpt list-excludes`)**:
+    - **Local config is used** if it exists.
+    - **If local config does not exist**, the global config is used.
+    - List all files or patterns that are excluded in the config.
+
+7. **List Excludes Globally (`2gpt list-excludes --global-config`)**:
+    - **Local config is ignored**.
+    - **Global config is used**.
+    - List all files or patterns that are excluded in the global config.
+
+8. **Remove Include/Exclude Locally (`2gpt remove-include "file.py"` or `2gpt remove-exclude "file.py"`)**:
+    - **Local config is used** if it exists.
+    - **If local config does not exist**, the global config is used.
+    - Remove the specified file or pattern (`file.py`) from the inclusion/exclusion list.
+    - If the file is removed temporarily, the config remains unchanged.
+    - **If `--permanent` is specified**, the change is applied permanently to the local config.
+
+9. **Remove Include/Exclude Globally (`2gpt remove-include "file.py" --permanent --global-config` or `2gpt remove-exclude "file.py" --permanent --global-config`)**:
+    - **Local config is ignored**.
+    - **Global config is used**.
+    - Remove the specified file or pattern (`file.py`) from the inclusion/exclusion list in the global config permanently.
+
+---
+
+### Command Breakdown:
+
+#### 1. **Default Run (`2gpt`)**:
+- **Local config** is used if it exists. If not, the **global config** is used.
+- Executes a run based on the configuration.
+
+#### 2. **Include**:
+- `2gpt include "file.py"`:
+    - Temporarily includes `file.py` for the next run without modifying the config files.
+
+- `2gpt include "file.py" --permanent`:
+    - Modifies the **local config** permanently to include `file.py`. If no local config exists, the global config is copied to the local `.gptignore`.
+
+- `2gpt include "file.py" --permanent --global-config`:
+    - Modifies the **global config** permanently to include `file.py`. The local config is ignored.
+
+#### 3. **Exclude**:
+- `2gpt exclude "file.py"`:
+    - Temporarily excludes `file.py` for the next run without modifying the config files.
+
+- `2gpt exclude "file.py" --permanent`:
+    - Modifies the **local config** permanently to exclude `file.py`. If no local config exists, the global config is copied to the local `.gptignore`.
+
+- `2gpt exclude "file.py" --permanent --global-config`:
+    - Modifies the **global config** permanently to exclude `file.py`. The local config is ignored.
+
+#### 4. **List Includes**:
+- `2gpt list-includes`:
+    - Lists all files or patterns included in the **local config** (if it exists) or the **global config**.
+
+- `2gpt list-includes --global-config`:
+    - Lists all files or patterns included in the **global config**.
+
+#### 5. **List Excludes**:
+- `2gpt list-excludes`:
+    - Lists all files or patterns excluded in the **local config** (if it exists) or the **global config**.
+
+- `2gpt list-excludes --global-config`:
+    - Lists all files or patterns excluded in the **global config**.
+
+#### 6. **Remove Include/Exclude**:
+- `2gpt remove-include "file.py"` or `2gpt remove-exclude "file.py"`:
+    - Removes `file.py` from the inclusion/exclusion list temporarily (no permanent config changes).
+
+- `2gpt remove-include "file.py" --permanent` or `2gpt remove-exclude "file.py" --permanent`:
+    - Permanently removes `file.py` from the **local config**.
+
+- `2gpt remove-include "file.py" --permanent --global-config` or `2gpt remove-exclude "file.py" --permanent --global-config`:
+    - Permanently removes `file.py` from the **global config**, ignoring the local config.
+
+---
+
+### Example Workflows:
+
+1. **Run with Default Configuration**:
+    ```bash
+    2gpt
+    ```
+
+2. **Temporarily Include a File**:
+    ```bash
+    2gpt include "file.py"
+    ```
+
+3. **Permanently Include a File Locally**:
+    ```bash
+    2gpt include "file.py" --permanent
+    ```
+
+4. **Permanently Include a File Globally**:
+    ```bash
+    2gpt include "file.py" --permanent --global-config
+    ```
+
+5. **List Includes in Local Config**:
+    ```bash
+    2gpt list-includes
+    ```
+
+6. **List Includes in Global Config**:
+    ```bash
+    2gpt list-includes --global-config
+    ```
+
+7. **Remove a File from Local Exclude List Permanently**:
+    ```bash
+    2gpt remove-exclude "file.py" --permanent
+    ```
+
+8. **Remove a File from Global Include List Permanently**:
+    ```bash
+    2gpt remove-include "file.py" --permanent --global-config
+    ```
+
+---
+
+This description covers the complete behavior for `include`, `exclude`, `list-includes`, `list-excludes`, and `remove` operations with local and global configurations, using the `--permanent` and `--global-config` flags where appropriate.
+
+"""
