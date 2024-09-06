@@ -218,7 +218,7 @@ class FileCollector:
         """Run the file collection process."""
         self.generate_tree()
         self.collect_files()
-        #self.reload_settings_from_permanent_config()
+
 
 def main():
     parser = argparse.ArgumentParser(description="FileCollector CLI to manage file inclusion and exclusion.")
@@ -276,6 +276,7 @@ def main():
     else:
         # If no command is provided, just run the collector
         collector.run()
+        collector.reload_settings_from_permanent_config()
 
     
 if __name__ == "__main__":
