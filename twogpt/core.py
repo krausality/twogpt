@@ -54,7 +54,7 @@ class FileCollector:
         # Settings from the configuration file
         self.output_file = self.config.get("output_file", "allfiles.txt")
         self.ignore_file = self.config.get("ignore_file", ".gptignore")
-        self.include_files = self.config.get("include_files", [])
+        self.include_files = set(self.config.get("include_files", []))
         self.exclude_files = set(self.config.get("exclude_files", []))
         self.exclude_dirs = set(self.config.get("exclude_dirs", []))
 
@@ -110,7 +110,7 @@ class FileCollector:
 
     def add_include(self, pattern, permanent=False):
         """Add a file pattern to the include list."""
-        self.include_files.append(pattern)
+        self.include_files.add(pattern)
         if permanent:
             self.config['include_files'].append(pattern)
             if self.use_global_config:
@@ -124,9 +124,10 @@ class FileCollector:
         if pattern in self.include_files:
             self.include_files.remove(pattern)
         if permanent:
+            if pattern in self.config['include_files']:
+                self.config['include_files'].remove(pattern)
+            
             if self.use_global_config:
-                if pattern in self.config['include_files']:
-                    self.config['include_files'].remove(pattern)
                 self.save_global_config()
             else:
                 self.save_local_config()
@@ -148,9 +149,10 @@ class FileCollector:
         if pattern in self.exclude_files:
             self.exclude_files.remove(pattern)
         if permanent:
+            if pattern in self.config['exclude_files']:
+                self.config['exclude_files'].remove(pattern)
+
             if self.use_global_config:
-                if pattern in self.config['exclude_files']:
-                    self.config['exclude_files'].remove(pattern)
                 self.save_global_config()
             else:
                 self.save_local_config()
@@ -178,7 +180,7 @@ class FileCollector:
 
     def collect_files(self):
         """Collect files based on inclusion and exclusion patterns."""
-        include_patterns = self._compile_patterns(self.include_files)
+        include_patterns = self._compile_patterns(list(self.include_files))
         exclude_patterns = self._compile_patterns(list(self.exclude_files))
         print(f"Include patterns: {include_patterns}")  # Debugging line
         print(f"Exclude patterns: {exclude_patterns}")  # Debugging line
@@ -275,8 +277,10 @@ def main():
         collector.list_excludes()
     else:
         # If no command is provided, just run the collector
-        collector.run()
-        collector.reload_settings_from_permanent_config()
+        pass
+
+    collector.run()
+    collector.reload_settings_from_permanent_config()
 
     
 if __name__ == "__main__":
