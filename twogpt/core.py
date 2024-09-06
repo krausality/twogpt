@@ -7,24 +7,50 @@ from dir_tree import DirectoryTree
 import shutil  # For copying the global config
 
 class FileCollector:
-    def __init__(self, root_dir='.', global_config=False, permanent=False):
+    def __init__(self, root_dir='.', use_global_config=False, permanent=False):
         """
         Initialize the FileCollector with a given root directory.
-        If global_config is True, work with the global config file. Otherwise, use the local config if it exists.
+        If use_global_config is True, work with the global config file. Otherwise, use the local config if it exists.
         If the local config doesn't exist and permanent changes are requested, create it.
         """
         self.root_dir = root_dir
-        self.global_config = global_config
+        self.use_global_config = use_global_config
         self.permanent = permanent  # Whether a permanent change is being made
-        
-        #wenn globale config verwendet werden soll
-        if self.global_config or (not self.local_config_exists() and not self.permanent):
-            # Use the global config if explicitly requested or if no local config exists and no permanent change
-            self.config = self.load_global_config()
-        else:
-            # Use local config if it exists, or create it when a permanent change is requested
-            self.config = self.load_local_config()
 
+        """
+        If ""2gpt ... " and no local config not exits 
+        """
+        if ((not self.use_global_config) and (not self.local_config_exists())):
+            if self.permanent:
+                self.config = self.load_local_config() #creating and loading local config
+            else:
+                self.config = self.load_global_config() #loading global config
+
+
+        #If 2gpt ...  and local config exits 
+        elif ((not self.use_global_config) and self.local_config_exists()):
+            if self.permanent:
+                self.config = self.load_local_config() #creating and loading local config
+            else:
+                self.config = self.load_local_config() #loading global config
+
+        #2gpt ... --global-config
+        elif self.use_global_config:
+            if self.permanent:
+                self.config = self.load_local_config() #creating and loading local config
+            else:
+                self.config = self.load_global_config() #loading global config
+
+        else:
+            pass
+
+
+        # trashs the unpermanent includes/excludes by restoring the includes/excludes
+        # from the permanent config. Should be used after each run.
+        # if the FileCollector Object is continously used.
+        self.reload_settings_from_permanent_config()
+
+    def reload_settings_from_permanent_config(self):
         # Settings from the configuration file
         self.output_file = self.config.get("output_file", "allfiles.txt")
         self.ignore_file = self.config.get("ignore_file", ".gptignore")
@@ -35,12 +61,6 @@ class FileCollector:
         # Exclude specific files (self-exclusion)
         self.exclude_files.add(self.output_file)
         self.exclude_files.add(self.ignore_file)
-
-        # Parse .gptignore to gather additional exclusion patterns
-        self.gptignore_patterns = self.parse_gptignore()
-        
-        # Classify .gptignore patterns into directories and files
-        self._classify_gptignore_patterns()
 
     def local_config_exists(self):
         """Check if the local .gptignore config exists."""
@@ -63,16 +83,8 @@ class FileCollector:
 
         if os.path.exists(local_config_path):
             # Load existing local config
-            with open(local_config_path, 'r') as f:
-                config = {'include_files': [], 'exclude_files': []}
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith('#'):
-                        if line.startswith('include:'):
-                            config['include_files'].append(line.split(':', 1)[1].strip())
-                        elif line.startswith('exclude:'):
-                            config['exclude_files'].append(line.split(':', 1)[1].strip())
-                return config
+            with open(local_config_path, 'r') as config_file:
+                return json.load(config_file)
         elif self.permanent:
             # If no local config exists and a permanent change is being made, copy from the global config
             print(f"Local .gptignore not found. Creating from global config for permanent changes.")
@@ -86,10 +98,7 @@ class FileCollector:
         """Save the local .gptignore configuration."""
         local_config_path = os.path.join(self.root_dir, '.gptignore')
         with open(local_config_path, 'w') as f:
-            for pattern in self.include_files:
-                f.write(f"include: {pattern}\n")
-            for pattern in self.exclude_files:
-                f.write(f"exclude: {pattern}\n")
+            json.dump(self.config, f, indent=4)
         print(f"Local configuration saved to {local_config_path}.")
 
     def save_global_config(self):
@@ -103,18 +112,19 @@ class FileCollector:
         """Add a file pattern to the include list."""
         self.include_files.append(pattern)
         if permanent:
-            if self.global_config:
-                self.config['include_files'].append(pattern)
+            self.config['include_files'].append(pattern)
+            if self.use_global_config:
                 self.save_global_config()
             else:
                 self.save_local_config()
+
 
     def remove_include(self, pattern, permanent=False):
         """Remove a file pattern from the include list."""
         if pattern in self.include_files:
             self.include_files.remove(pattern)
         if permanent:
-            if self.global_config:
+            if self.use_global_config:
                 if pattern in self.config['include_files']:
                     self.config['include_files'].remove(pattern)
                 self.save_global_config()
@@ -125,18 +135,20 @@ class FileCollector:
         """Add a file pattern to the exclude list."""
         self.exclude_files.add(pattern)
         if permanent:
-            if self.global_config:
-                self.config['exclude_files'].append(pattern)
+            self.config['exclude_files'].append(pattern)
+            if self.use_global_config:
                 self.save_global_config()
             else:
                 self.save_local_config()
+
+
 
     def remove_exclude(self, pattern, permanent=False):
         """Remove a file pattern from the exclude list."""
         if pattern in self.exclude_files:
             self.exclude_files.remove(pattern)
         if permanent:
-            if self.global_config:
+            if self.use_global_config:
                 if pattern in self.config['exclude_files']:
                     self.config['exclude_files'].remove(pattern)
                 self.save_global_config()
@@ -155,25 +167,6 @@ class FileCollector:
         for pattern in self.exclude_files:
             print(f"  {pattern}")
 
-    def parse_gptignore(self):
-        """Parse the .gptignore file to get exclusion patterns."""
-        gptignore_file = os.path.join(self.root_dir, '.gptignore')
-        patterns = []
-        if os.path.exists(gptignore_file):
-            with open(gptignore_file, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith('#'):  # Ignore empty lines and comments
-                        patterns.append(line)
-        return patterns
-
-    def _classify_gptignore_patterns(self):
-        """Classify .gptignore patterns into directories and files."""
-        for pattern in self.gptignore_patterns:
-            if pattern.endswith('/'):
-                self.exclude_dirs.add(pattern.rstrip('/'))
-            else:
-                self.exclude_files.add(pattern)
 
     def generate_tree(self):
         """Generate the directory tree and write it to the output file."""
@@ -225,12 +218,12 @@ class FileCollector:
         """Run the file collection process."""
         self.generate_tree()
         self.collect_files()
-
+        #self.reload_settings_from_permanent_config()
 
 def main():
     parser = argparse.ArgumentParser(description="FileCollector CLI to manage file inclusion and exclusion.")
     subparsers = parser.add_subparsers(dest="command", help="Sub-command help")
-    
+   
     # Add global config option
     parser.add_argument('--global-config', action='store_true', help='Apply changes to the global config instead of the local config.')
 
@@ -260,24 +253,29 @@ def main():
 
     args = parser.parse_args()
 
-    # Determine whether we're using the global config or local config
-    collector = FileCollector(root_dir=".", global_config=args.global_config, permanent=args.permanent)
+    # Determine whether we're using the global config
+    global_config = args.global_config if hasattr(args, 'global_config') else False
+    permanent = args.permanent if hasattr(args, 'permanent') else False
 
-    if args.command == "include":
-        collector.add_include(args.pattern, permanent=args.permanent)
-    elif args.command == "exclude":
-        collector.add_exclude(args.pattern, permanent=args.permanent)
-    elif args.command == "remove-include":
-        collector.remove_include(args.pattern, permanent=args.permanent)
-    elif args.command == "remove-exclude":
-        collector.remove_exclude(args.pattern, permanent=args.permanent)
+    # Initialize the collector
+    collector = FileCollector(root_dir=".", use_global_config=global_config, permanent=permanent)
+
+    if args.command in ["include", "exclude", "remove-include", "remove-exclude"]:
+        if args.command == "include":
+            collector.add_include(args.pattern, permanent=permanent)
+        elif args.command == "exclude":
+            collector.add_exclude(args.pattern, permanent=permanent)
+        elif args.command == "remove-include":
+            collector.remove_include(args.pattern, permanent=permanent)
+        elif args.command == "remove-exclude":
+            collector.remove_exclude(args.pattern, permanent=permanent)
     elif args.command == "list-includes":
         collector.list_includes()
     elif args.command == "list-excludes":
         collector.list_excludes()
-
-    collector.run()
-
+    else:
+        # If no command is provided, just run the collector
+        collector.run()
 if __name__ == "__main__":
     main()
 
