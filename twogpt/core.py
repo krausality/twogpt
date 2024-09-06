@@ -276,6 +276,8 @@ def main():
     else:
         # If no command is provided, just run the collector
         collector.run()
+
+    
 if __name__ == "__main__":
     main()
 
