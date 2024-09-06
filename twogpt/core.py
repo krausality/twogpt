@@ -17,6 +17,7 @@ class FileCollector:
         self.global_config = global_config
         self.permanent = permanent  # Whether a permanent change is being made
         
+        #wenn globale config verwendet werden soll
         if self.global_config or (not self.local_config_exists() and not self.permanent):
             # Use the global config if explicitly requested or if no local config exists and no permanent change
             self.config = self.load_global_config()
