@@ -110,9 +110,13 @@ class FileCollector:
 
     def add_include(self, pattern, permanent=False):
         """Add a file pattern to the include list."""
-        self.include_files.add(pattern)
+        if pattern not in self.include_files:
+            self.include_files.add(pattern)
+
         if permanent:
-            self.config['include_files'].append(pattern)
+            if pattern not in self.config['include_files']:
+                self.config['include_files'].append(pattern)
+
             if self.use_global_config:
                 self.save_global_config()
             else:
@@ -134,9 +138,11 @@ class FileCollector:
 
     def add_exclude(self, pattern, permanent=False):
         """Add a file pattern to the exclude list."""
-        self.exclude_files.add(pattern)
+        if pattern not in self.exclude_files:
+            self.exclude_files.add(pattern)
         if permanent:
-            self.config['exclude_files'].append(pattern)
+            if pattern not in self.config['exclude_files']:
+                self.config['exclude_files'].append(pattern)
             if self.use_global_config:
                 self.save_global_config()
             else:
