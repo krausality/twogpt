@@ -108,7 +108,7 @@ class FileCollector:
             json.dump(self.config, config_file, indent=4)
         print(f"Global configuration saved to {config_path}.")
 
-    def add_include(self, pattern, permanent=False):
+    def add_include(self, pattern, permanent=False):     
         """Add a file pattern to the include list."""
         if pattern not in self.include_files:
             self.include_files.add(pattern)
@@ -137,6 +137,10 @@ class FileCollector:
                 self.save_local_config()
 
     def add_exclude(self, pattern, permanent=False):
+        #Classification if pattern is directory or if pattern is file,
+        #consequently adding the pattern either to self.exclude_files or 
+        #adding it to self.exclude_dirs
+   
         """Add a file pattern to the exclude list."""
         if pattern not in self.exclude_files:
             self.exclude_files.add(pattern)
@@ -151,6 +155,10 @@ class FileCollector:
 
 
     def remove_exclude(self, pattern, permanent=False):
+        #Classification if pattern is directory or if pattern is file,
+        #consequently removing the pattern either from self.exclude_files or 
+        #removing it from self.exclude_dirs
+   
         """Remove a file pattern from the exclude list."""
         if pattern in self.exclude_files:
             self.exclude_files.remove(pattern)
