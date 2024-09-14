@@ -136,11 +136,6 @@ class FileCollector:
                 self.save_local_config()
 
     def add_exclude(self, pattern, permanent=False):
-        #IMPLEMENT/(TODO):
-        #Classification if pattern is directory or if pattern is file,
-        #consequently adding the pattern either to self.exclude_patterns or 
-        #adding it to self.exclude_dirs
-   
         """Add a file pattern to the exclude list."""
         if pattern not in self.exclude_patterns:
             self.exclude_patterns.add(pattern)
@@ -155,11 +150,6 @@ class FileCollector:
 
 
     def remove_exclude(self, pattern, permanent=False):
-        #IMPLEMENT/(TODO):
-        #Classification if pattern is directory or if pattern is file,
-        #consequently removing the pattern either from self.exclude_patterns or 
-        #removing it from self.exclude_dirs
-   
         """Remove a file pattern from the exclude list."""
         if pattern in self.exclude_patterns:
             self.exclude_patterns.remove(pattern)
@@ -203,6 +193,7 @@ class FileCollector:
         with open(self.output_file, 'a') as f:
             for root, dirs, files in os.walk(self.root_dir):
                 print(f"Walking directory: {root}")  # Debugging line
+                dirs[:] = [d for d in dirs if d not in self.exclude_patterns and not any(fnmatch.fnmatch(d, pattern) for pattern in self.exclude_patterns)]
                 for file in files:
                     print(f"Processing file: {file}")  # Debugging line
                     if any(re.match(pattern, file) for pattern in include_patterns) and not any(re.match(pattern, file) for pattern in exclude_patterns):
