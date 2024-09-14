@@ -54,13 +54,12 @@ class FileCollector:
         # Settings from the configuration file
         self.output_file = self.config.get("output_file", "allfiles.txt")
         self.ignore_file = self.config.get("ignore_file", ".gptignore")
-        self.include_files = set(self.config.get("include_files", []))
-        self.exclude_files = set(self.config.get("exclude_files", []))
-        self.exclude_dirs = set(self.config.get("exclude_dirs", []))
+        self.include_patterns = set(self.config.get("include_patterns", []))
+        self.exclude_patterns = set(self.config.get("exclude_patterns", []))
 
         # Exclude specific files (self-exclusion)
-        self.exclude_files.add(self.output_file)
-        self.exclude_files.add(self.ignore_file)
+        self.exclude_patterns.add(self.output_file)
+        self.exclude_patterns.add(self.ignore_file)
 
     def local_config_exists(self):
         """Check if the local .gptignore config exists."""
@@ -110,12 +109,12 @@ class FileCollector:
 
     def add_include(self, pattern, permanent=False):     
         """Add a file pattern to the include list."""
-        if pattern not in self.include_files:
-            self.include_files.add(pattern)
+        if pattern not in self.include_patterns:
+            self.include_patterns.add(pattern)
 
         if permanent:
-            if pattern not in self.config['include_files']:
-                self.config['include_files'].append(pattern)
+            if pattern not in self.config['include_patterns']:
+                self.config['include_patterns'].append(pattern)
 
             if self.use_global_config:
                 self.save_global_config()
@@ -125,11 +124,11 @@ class FileCollector:
 
     def remove_include(self, pattern, permanent=False):
         """Remove a file pattern from the include list."""
-        if pattern in self.include_files:
-            self.include_files.remove(pattern)
+        if pattern in self.include_patterns:
+            self.include_patterns.remove(pattern)
         if permanent:
-            if pattern in self.config['include_files']:
-                self.config['include_files'].remove(pattern)
+            if pattern in self.config['include_patterns']:
+                self.config['include_patterns'].remove(pattern)
             
             if self.use_global_config:
                 self.save_global_config()
@@ -137,16 +136,17 @@ class FileCollector:
                 self.save_local_config()
 
     def add_exclude(self, pattern, permanent=False):
+        #IMPLEMENT/(TODO):
         #Classification if pattern is directory or if pattern is file,
-        #consequently adding the pattern either to self.exclude_files or 
+        #consequently adding the pattern either to self.exclude_patterns or 
         #adding it to self.exclude_dirs
    
         """Add a file pattern to the exclude list."""
-        if pattern not in self.exclude_files:
-            self.exclude_files.add(pattern)
+        if pattern not in self.exclude_patterns:
+            self.exclude_patterns.add(pattern)
         if permanent:
-            if pattern not in self.config['exclude_files']:
-                self.config['exclude_files'].append(pattern)
+            if pattern not in self.config['exclude_patterns']:
+                self.config['exclude_patterns'].append(pattern)
             if self.use_global_config:
                 self.save_global_config()
             else:
@@ -155,16 +155,17 @@ class FileCollector:
 
 
     def remove_exclude(self, pattern, permanent=False):
+        #IMPLEMENT/(TODO):
         #Classification if pattern is directory or if pattern is file,
-        #consequently removing the pattern either from self.exclude_files or 
+        #consequently removing the pattern either from self.exclude_patterns or 
         #removing it from self.exclude_dirs
    
         """Remove a file pattern from the exclude list."""
-        if pattern in self.exclude_files:
-            self.exclude_files.remove(pattern)
+        if pattern in self.exclude_patterns:
+            self.exclude_patterns.remove(pattern)
         if permanent:
-            if pattern in self.config['exclude_files']:
-                self.config['exclude_files'].remove(pattern)
+            if pattern in self.config['exclude_patterns']:
+                self.config['exclude_patterns'].remove(pattern)
 
             if self.use_global_config:
                 self.save_global_config()
@@ -174,19 +175,19 @@ class FileCollector:
     def list_includes(self):
         """List all the include file patterns."""
         print("Currently included files:")
-        for pattern in self.include_files:
+        for pattern in self.include_patterns:
             print(f"  {pattern}")
 
     def list_excludes(self):
         """List all the exclude file patterns."""
         print("Currently excluded files:")
-        for pattern in self.exclude_files:
+        for pattern in self.exclude_patterns:
             print(f"  {pattern}")
 
 
     def generate_tree(self):
         """Generate the directory tree and write it to the output file."""
-        tree = DirectoryTree(root_dir=self.root_dir, exclude_dirs=self.exclude_dirs, exclude_files=self.exclude_files)
+        tree = DirectoryTree(root_dir=self.root_dir, exclude_dirs=[], exclude_files=self.exclude_patterns) #exclude_files works also with directorys
         with open(self.output_file, 'w', encoding='utf-8') as f:
             f.write("File Structure:\n")
             f.write(json.loads(tree.to_json())["tree_print"])
@@ -194,15 +195,14 @@ class FileCollector:
 
     def collect_files(self):
         """Collect files based on inclusion and exclusion patterns."""
-        include_patterns = self._compile_patterns(list(self.include_files))
-        exclude_patterns = self._compile_patterns(list(self.exclude_files))
+        include_patterns = self._compile_patterns(list(self.include_patterns))
+        exclude_patterns = self._compile_patterns(list(self.exclude_patterns))
         print(f"Include patterns: {include_patterns}")  # Debugging line
         print(f"Exclude patterns: {exclude_patterns}")  # Debugging line
 
         with open(self.output_file, 'a') as f:
             for root, dirs, files in os.walk(self.root_dir):
                 print(f"Walking directory: {root}")  # Debugging line
-                dirs[:] = [d for d in dirs if d not in self.exclude_dirs and not any(fnmatch.fnmatch(d, pattern) for pattern in self.exclude_dirs)]
                 for file in files:
                     print(f"Processing file: {file}")  # Debugging line
                     if any(re.match(pattern, file) for pattern in include_patterns) and not any(re.match(pattern, file) for pattern in exclude_patterns):
