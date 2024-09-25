@@ -8,7 +8,7 @@
 !README.md
 !next_prompt.txt
 !example
-!/build/*
+!/dist/*
 # etc...
 
 # ...even if they are in subdirectories
